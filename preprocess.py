@@ -1,8 +1,9 @@
+import argparse
 import re
 
 import pandas as pd
 
-GAN_data_path = 'GAN_Stroop_Data.xlsx'
+DEFAULT_GAN_DATA_PATH = "GAN_Stroop_Data.xlsx"
 
 
 def _participant_to_subject_ids(participants: pd.Series) -> pd.Series:
@@ -18,76 +19,65 @@ def _participant_to_subject_ids(participants: pd.Series) -> pd.Series:
         return parsed.astype(int)
     return participants.astype("category").cat.codes
 
-# new preprocessor -> styling sheet to match conditional GAN
-raw = pd.read_excel(GAN_data_path, sheet_name=0, header=None).iloc[3:]
-raw[0] = raw[0].ffill() # participant names are forward-filled
+def build_cleaned_vegs(
+    gan_data_path: str = DEFAULT_GAN_DATA_PATH,
+    output_csv: str = "cleaned_vegs_data.csv",
+) -> pd.DataFrame:
+    """Load Stroop Excel export and write a tidy CSV (portion = 1..4 for SBP.py)."""
+    portion_meta = {
+        1: list(range(1, 9)),  # B–I -> Stroop 1
+        2: list(range(9, 17)),  # J–Q -> Stroop 2
+        3: list(range(17, 25)),  # R–Y -> Stroop 3
+        4: list(range(25, 33)),  # Z–AG -> Stroop 4
+    }
+    feature_cols = [
+        "Theta",
+        "Alpha",
+        "BetaL",
+        "BetaH",
+        "Gamma",
+        "Arousal",
+        "Valence",
+        "Engagement",
+    ]
+
+    raw = pd.read_excel(gan_data_path, sheet_name=0, header=None).iloc[3:]
+    raw[0] = raw[0].ffill()
+
+    frames = []
+    for portion_id, cols in portion_meta.items():
+        sub = raw[[0] + cols].copy()
+        sub.columns = ["Participant"] + feature_cols
+        sub["portion"] = portion_id
+        frames.append(sub)
+
+    df = pd.concat(frames, ignore_index=True)
+    df["Participant"] = df["Participant"].astype(str).str.strip()
+    for c in feature_cols:
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+    df = df.dropna(subset=feature_cols)
+    df["subject_id"] = _participant_to_subject_ids(df["Participant"])
+    df = df[["Participant", "subject_id", "portion"] + feature_cols]
+    df.to_csv(output_csv, index=False)
+    print(f"Saved {len(df)} rows to {output_csv}")
+    return df
 
 
-portion_meta = {
-    # portion up into each stroop task
-    "portion 1": list(range(1, 9)), #B-I -> Stroop 1
-    "portion 2": list(range(9, 17)), #J-Q -> Stroop 2
-    "portion 3": list(range(17, 25)), #R-Y -> Stroop 3
-    "portion 4": list(range(25, 33)), #Z-AG -> Stroop 4
-}
+def main() -> None:
+    p = argparse.ArgumentParser(description="Preprocess GAN_Stroop Excel -> cleaned_vegs_data.csv")
+    p.add_argument(
+        "--input",
+        default=DEFAULT_GAN_DATA_PATH,
+        help=f"path to Excel file (default: {DEFAULT_GAN_DATA_PATH})",
+    )
+    p.add_argument(
+        "--output",
+        default="cleaned_vegs_data.csv",
+        help="output CSV path",
+    )
+    args = p.parse_args()
+    build_cleaned_vegs(gan_data_path=args.input, output_csv=args.output)
 
-feature_cols = ['Theta', 'Alpha', 'BetaL', 'BetaH', 'Gamma', 'Arousal', 'Valence', 'Engagement']
 
-# build out our tidy table
-frames = []
-for pname, cols in portion_meta.items():
-    sub = raw[[0] + cols].copy()
-    sub.columns = ['Participant'] + feature_cols
-    sub['portion'] = pname
-    frames.append(sub)
-
-df = pd.concat(frames, ignore_index=True)
-
-# clean our categorial DF
-df['Participant'] = df['Participant'].astype(str).str.strip()
-df['portion'] = df['portion'].astype(str).str.strip()
-
-for c in feature_cols:
-    df[c] = pd.to_numeric(df[c], errors='coerce')
-df = df.dropna(subset=feature_cols)
-
-# append a subject id to each participant (stable for anonymized "Player N" labels)
-df["subject_id"] = _participant_to_subject_ids(df["Participant"])
-
-#run it for final col order:
-df = df[['Participant', 'subject_id', 'portion'] + feature_cols]
-
-# finally, save to updated csv
-df.to_csv('cleaned_vegs_data.csv', index=False)
-print("Saved new csv to cleaned_vegs_data.csv in current root directory")
-'''
-df = pd.read_excel(GAN_data_path, sheet_name=0, header=None)
-
-portion_meta = {
-    "portion 1": list(range(1, 9)),     # B–I
-    "portion 2": list(range(9, 17)),    # J–Q
-    "portion 3": list(range(17, 25)),   # R–Y
-    "portion 4": list(range(25, 33)),   # Z–AG
-}
-
-columns = ['Theta', 'Alpha', 'BetaL', 'BetaH', 'Gamma', 'Arousal', 'Valence', 'Engagement']
-
-data = []
-df = df.iloc[3:]  # skip top 3 rows (titles)
-
-df[0] = df[0].ffill()
-
-for portion_name, cols in portion_meta.items():
-    sub = df[[0] + cols].copy()
-    sub.columns = ['Participant'] + columns
-    sub['portion'] = portion_name
-    data.append(sub)
-
-final = pd.concat(data)
-final = final.dropna(subset=columns, how='any')
-
-final = final[['Participant', 'portion'] + columns]
-
-final.to_csv("cleaned_vegs_data.csv", index=False)
-print(" Saved to cleaned_vegs_data.csv")
-'''
+if __name__ == "__main__":
+    main()

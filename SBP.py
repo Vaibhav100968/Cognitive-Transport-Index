@@ -1,3 +1,5 @@
+import argparse
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -158,10 +160,61 @@ def run_true_sbp(df, features, epochs=100, batch_size=128, output_csv="true_sbp_
     return results
 
 
+DEFAULT_FEATURES = [
+    "Theta",
+    "Alpha",
+    "BetaL",
+    "BetaH",
+    "Gamma",
+    "Arousal",
+    "Valence",
+    "Engagement",
+]
+
+
+def normalize_portion_column(df: pd.DataFrame) -> pd.DataFrame:
+    """Accept portion as 1–4 or legacy strings like 'portion 1'."""
+    out = df.copy()
+    p = out["portion"]
+
+    def to_int(v: object) -> int:
+        if isinstance(v, (int, np.integer)):
+            return int(v)
+        s = str(v).strip().lower()
+        if s.startswith("portion"):
+            return int(s.replace("portion", "", 1).strip())
+        return int(float(s))
+
+    if not np.issubdtype(p.dtype, np.number):
+        out["portion"] = p.map(to_int)
+    return out
+
+
+def main() -> None:
+    p = argparse.ArgumentParser(description="Train score nets and compute SBP energy per participant/portion.")
+    p.add_argument(
+        "--input",
+        default="generated_eeg_baseline_z.csv",
+        help="CSV with Participant, portion (1–4), and feature columns",
+    )
+    p.add_argument(
+        "--output",
+        default="generated_sbp_results.csv",
+        help="where to write SBP energy results",
+    )
+    p.add_argument("--epochs", type=int, default=50)
+    p.add_argument("--batch-size", type=int, default=64)
+    args = p.parse_args()
+
+    df = normalize_portion_column(pd.read_csv(args.input))
+    run_true_sbp(
+        df,
+        DEFAULT_FEATURES,
+        epochs=args.epochs,
+        batch_size=args.batch_size,
+        output_csv=args.output,
+    )
+
+
 if __name__ == "__main__":
-    df = pd.read_csv("generated_eeg_baseline_z.csv")
-    features = [
-        'Theta', 'Alpha', 'BetaL', 'BetaH',
-        'Gamma', 'Arousal', 'Valence', 'Engagement'
-    ]
-    run_true_sbp(df, features, epochs=50, batch_size=64, output_csv="generated_sbp_results.csv")
+    main()
