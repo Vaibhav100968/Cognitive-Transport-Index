@@ -227,7 +227,7 @@ def main():
                 raw = ws.recv()
                 data = json.loads(raw)
             except Exception as e:
-                print(f"WebSocket error: {e}. Reconnecting...")
+                print(f"WebSocket error: {e}. Reconnecting...", flush=True)
                 break
 
             if "pow" in data:
@@ -271,7 +271,8 @@ def main():
                             rem = max(0.0, 60 - len(calibration_vectors) * 0.1)
                             print(
                                 f"Calibration: {len(calibration_vectors)} samples "
-                                f"({rem:.0f}s remaining)"
+                                f"({rem:.0f}s remaining)",
+                                flush=True,
                             )
                         if len(calibration_vectors) >= 600:
                             mu = np.mean(calibration_vectors, axis=0)
@@ -287,9 +288,9 @@ def main():
                             os.makedirs(data_dir, exist_ok=True)
                             with open(cal_path, "w") as f:
                                 json.dump(cal_data, f, indent=2)
-                            print(f"Calibration saved to {cal_path}")
-                            print(f"mu={mu.round(4)}")
-                            print(f"sigma={sigma.round(4)}")
+                            print(f"Calibration saved to {cal_path}", flush=True)
+                            print(f"mu={mu.round(4)}", flush=True)
+                            print(f"sigma={sigma.round(4)}", flush=True)
                             break
                     else:
                         if cal_mu is not None:
@@ -313,7 +314,8 @@ def main():
                             print(
                                 f"[{args.participant}] Published #{publish_count} | "
                                 f"Engagement={payload['Engagement']:.3f} | "
-                                f"Arousal={payload['Arousal']:.3f}"
+                                f"Arousal={payload['Arousal']:.3f}",
+                                flush=True,
                             )
 
                     last_publish_time = now
