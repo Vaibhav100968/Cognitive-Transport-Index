@@ -1,0 +1,17 @@
+---
+description: After code changes, commit and push to GitHub (real_time_SBP)
+alwaysApply: true
+---
+
+# GitHub: push after every change
+
+When you modify project code, data pipelines, or config under this repo:
+
+1. **Commit** with a clear message summarizing the change.
+2. **Push** to `origin` on branch `main` (remote: `https://github.com/Vaibhav100968/real_time_SBP.git`).
+
+Do this **before** ending the turn or considering the task done, unless the user explicitly asked not to push or there is no git remote / no network.
+
+**Do not** commit junk: skip `.DS_Store`, `__pycache__/`, local-only scratch folders, and secrets unless the user asks to include them.
+
+Use author identity already configured for this repo (`git config user.*`); do not rewrite history unless asked.
