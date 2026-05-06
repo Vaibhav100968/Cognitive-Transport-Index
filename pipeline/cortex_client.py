@@ -232,33 +232,30 @@ def main():
 
             if "pow" in data:
                 pow_data = data["pow"]
-                try:
-                    theta = float(np.mean([row[0] for row in pow_data]))
-                    alpha = float(np.mean([row[1] for row in pow_data]))
-                    beta_l = float(np.mean([row[2] for row in pow_data]))
-                    beta_h = float(np.mean([row[3] for row in pow_data]))
-                    gamma = float(np.mean([row[4] for row in pow_data]))
-                    engagement = float(beta_l / (alpha + theta + 1e-8))
-                    arousal = float((beta_l + beta_h) / (alpha + theta + 1e-8))
-                    valence = float(
-                        np.clip(alpha - beta_h, -1.0, 1.0)
-                        / (alpha + beta_h + 1e-8)
-                    )
-                    raw_vec = np.array(
-                        [
-                            theta,
-                            alpha,
-                            beta_l,
-                            beta_h,
-                            gamma,
-                            arousal,
-                            valence,
-                            engagement,
-                        ]
-                    )
-                    latest_pow = raw_vec
-                except (IndexError, TypeError):
-                    pass
+                arr = np.array(pow_data).reshape(14, 5)
+                theta = float(np.mean(arr[:, 0]))
+                alpha = float(np.mean(arr[:, 1]))
+                beta_l = float(np.mean(arr[:, 2]))
+                beta_h = float(np.mean(arr[:, 3]))
+                gamma = float(np.mean(arr[:, 4]))
+                engagement = float(beta_l / (alpha + theta + 1e-8))
+                arousal = float((beta_l + beta_h) / (alpha + theta + 1e-8))
+                valence = float(
+                    np.clip(alpha - beta_h, -1.0, 1.0) / (alpha + beta_h + 1e-8)
+                )
+                raw_vec = np.array(
+                    [
+                        theta,
+                        alpha,
+                        beta_l,
+                        beta_h,
+                        gamma,
+                        arousal,
+                        valence,
+                        engagement,
+                    ]
+                )
+                latest_pow = raw_vec
 
             now = time.time()
             if latest_pow is not None:
