@@ -96,8 +96,40 @@ def main():
             },
         )
         print("requestAccess:", resp.get("result", resp.get("error")))
-        print(">>> If prompted, click Allow in Emotiv Launcher, then press Enter")
-        input()
+        if resp.get("error"):
+            print("[cortex_client] requestAccess failed:", resp["error"])
+            return
+
+        res = resp.get("result")
+        if isinstance(res, dict) and res.get("accessGranted") is False:
+            print(
+                ">>> Access not granted yet — click **Allow** in Emotiv Launcher for this app, "
+                "then press Enter here."
+            )
+            input()
+            resp = send_recv(
+                ws,
+                {
+                    "id": 11,
+                    "jsonrpc": "2.0",
+                    "method": "requestAccess",
+                    "params": {
+                        "clientId": args.client_id,
+                        "clientSecret": args.client_secret,
+                    },
+                },
+            )
+            print("requestAccess (retry):", resp.get("result", resp.get("error")))
+            if resp.get("error"):
+                print("[cortex_client] requestAccess retry failed:", resp["error"])
+                return
+            res = resp.get("result")
+            if isinstance(res, dict) and res.get("accessGranted") is False:
+                print(
+                    "[cortex_client] Access still denied (accessGranted: False). "
+                    "Approve the app in Emotiv Launcher and try again."
+                )
+                return
 
         resp = send_recv(
             ws,
@@ -112,7 +144,10 @@ def main():
                 },
             },
         )
-        if "error" in resp and resp["error"]:
+        if "result" not in resp:
+            print(f"Authorize failed. Full response: {resp}")
+            return
+        if resp.get("error"):
             print("authorize error:", resp["error"])
             return
         cortex_token = resp["result"]["cortexToken"]
@@ -127,7 +162,9 @@ def main():
             return
         headsets = resp.get("result") or []
         if not headsets:
-            print("No headset found. Connect a headset and restart.")
+            print(
+                "No headset found. Make sure EPOC X is connected in Emotiv Launcher"
+            )
             return
         headset_id = headsets[0]["id"]
         print(f"Headset found: {headset_id}")
