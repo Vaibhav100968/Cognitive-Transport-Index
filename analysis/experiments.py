@@ -267,54 +267,110 @@ def fig_cti_vs_rt():
             print("[experiments] Skip CTI vs RT: session_data.csv is empty")
             return
 
-        eeg = df[df["event_type"] == "eeg_energy"].copy()
         choices = df[df["event_type"] == "game_choice"].copy()
-        if eeg.empty or choices.empty:
+        eeg = df[df["event_type"] == "eeg_energy"].copy()
+        if choices.empty or eeg.empty:
             print("[experiments] Insufficient data for CTI vs RT")
             return
 
-        eeg["CTI"] = pd.to_numeric(eeg.get("CTI"), errors="coerce")
-        eeg = eeg.dropna(subset=["CTI", "experiment_phase"])
-        choices["reaction_time_ms"] = pd.to_numeric(choices.get("reaction_time_ms"), errors="coerce")
-        choices = choices.dropna(subset=["reaction_time_ms", "experiment_phase"])
-
-        if eeg.empty or choices.empty:
-            print("[experiments] Insufficient data for CTI vs RT")
-            return
-
-        cti_by_phase = eeg.groupby("experiment_phase")["CTI"].mean()
-        rt_by_phase = choices.groupby("experiment_phase")["reaction_time_ms"].mean()
-        merged = (
-            pd.DataFrame({"CTI": cti_by_phase, "RT_ms": rt_by_phase})
-            .dropna()
-            .reset_index()
+        choices["timestamp"] = pd.to_numeric(choices.get("timestamp"), errors="coerce")
+        choices["reaction_time_ms"] = pd.to_numeric(
+            choices.get("reaction_time_ms"), errors="coerce"
         )
-        if len(merged) < 2:
+        choices = choices.dropna(subset=["timestamp", "reaction_time_ms"])
+
+        eeg["timestamp"] = pd.to_numeric(eeg.get("timestamp"), errors="coerce")
+        eeg["CTI"] = pd.to_numeric(eeg.get("CTI"), errors="coerce")
+        eeg = eeg.dropna(subset=["timestamp", "CTI"])
+
+        if choices.empty or eeg.empty:
             print("[experiments] Insufficient data for CTI vs RT")
+            return
+
+        eeg = eeg.sort_values("timestamp")
+        eeg_t = eeg["timestamp"].to_numpy(dtype=float)
+        eeg_cti = eeg["CTI"].to_numpy(dtype=float)
+
+        def closest_cti(ts: float, max_diff_sec: float = 30.0):
+            idx = int(np.searchsorted(eeg_t, ts))
+            best_cti = None
+            best_diff = max_diff_sec
+            for j in (idx - 1, idx):
+                if 0 <= j < len(eeg_t):
+                    diff = abs(eeg_t[j] - ts)
+                    if diff <= best_diff:
+                        best_diff = diff
+                        best_cti = float(eeg_cti[j])
+            return best_cti
+
+        pairs = []
+        for _, row in choices.iterrows():
+            ts = float(row["timestamp"])
+            cti = closest_cti(ts, max_diff_sec=30.0)
+            pairs.append(
+                {
+                    "reaction_time_ms": float(row["reaction_time_ms"]),
+                    "CTI": cti,
+                    "difficulty": row.get("difficulty"),
+                    "experiment_phase": row.get("experiment_phase"),
+                    "scenario_index": row.get("scenario_index"),
+                    "choice_timestamp": ts,
+                }
+            )
+
+        pairs_df = pd.DataFrame(pairs)
+        pairs_df["CTI"] = pd.to_numeric(pairs_df.get("CTI"), errors="coerce")
+        pairs_df = pairs_df.dropna(subset=["CTI"])
+        if len(pairs_df) < 3:
+            print("[experiments] Warning: Insufficient matched pairs for CTI vs RT")
             return
 
         from scipy.stats import pearsonr
 
-        r, pval = pearsonr(merged["CTI"], merged["RT_ms"])
-        print(f"[experiments] CTI vs RT: Pearson r={r:.4f} p={pval:.4g} (n={len(merged)})")
+        r, pval = pearsonr(pairs_df["reaction_time_ms"], pairs_df["CTI"])
+        print(
+            f"[experiments] CTI vs RT pairs: n={len(pairs_df)} r={r:.4f} p={pval:.4g}"
+        )
+
+        fig, ax = plt.subplots(figsize=(6, 4.5))
+        colors = []
+        for d in pairs_df["difficulty"].astype(str).str.lower().fillna(""):
+            if d == "easy":
+                colors.append("#1f77b4")
+            elif d == "hard":
+                colors.append("#d62728")
+            else:
+                colors.append("#666666")
+
+        x = pairs_df["reaction_time_ms"].to_numpy(dtype=float)
+        y = pairs_df["CTI"].to_numpy(dtype=float)
+        ax.scatter(x, y, c=colors, alpha=0.8, edgecolors="k", linewidths=0.2)
 
         try:
-            import seaborn as sns
+            m, b = np.polyfit(x, y, 1)
+            xs = np.linspace(float(np.min(x)), float(np.max(x)), 100)
+            ax.plot(xs, m * xs + b, color="black", linewidth=1.5, alpha=0.7)
+        except Exception:
+            pass
 
-            fig, ax = plt.subplots(figsize=(5, 4))
-            sns.regplot(data=merged, x="CTI", y="RT_ms", ax=ax, scatter_kws={"s": 60})
-            for _, row in merged.iterrows():
-                ax.text(row["CTI"], row["RT_ms"], str(row["experiment_phase"]), fontsize=9)
-            ax.set_xlabel("Mean CTI by experiment_phase")
-            ax.set_ylabel("Mean reaction time (ms) by experiment_phase")
-            ax.set_title(f"CTI vs RT (phase means) | r={r:.2f}")
-            fig.tight_layout()
-            out = os.path.join(FIG_DIR, "fig_cti_vs_rt.png")
-            fig.savefig(out, dpi=150)
-            plt.close(fig)
-            print(f"[experiments] Wrote {out}")
-        except Exception as e:
-            print(f"[experiments] Warning: CTI vs RT plot failed: {e}")
+        ax.set_xlabel("Reaction time (ms)")
+        ax.set_ylabel("CTI")
+        ax.set_title("CTI vs reaction time (timestamp-matched)")
+        ax.text(
+            0.02,
+            0.98,
+            f"n={len(pairs_df)}\nr={r:.2f}  p={pval:.3g}",
+            transform=ax.transAxes,
+            ha="left",
+            va="top",
+            fontsize=10,
+            bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.85),
+        )
+        fig.tight_layout()
+        out = os.path.join(FIG_DIR, "fig_cti_vs_rt.png")
+        fig.savefig(out, dpi=150)
+        plt.close(fig)
+        print(f"[experiments] Wrote {out}")
     except Exception as e:
         print(f"[experiments] Warning: CTI vs RT failed: {e}")
 
