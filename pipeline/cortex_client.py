@@ -103,7 +103,7 @@ def main():
         res = resp.get("result")
         if isinstance(res, dict) and res.get("accessGranted") is False:
             print(
-                ">>> Access not granted yet — click **Allow** in Emotiv Launcher for this app, "
+                ">>> Access not granted yet — click Allow in Emotiv Launcher for this app, "
                 "then press Enter here."
             )
             input()
