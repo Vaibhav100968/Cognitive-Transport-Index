@@ -28,7 +28,8 @@ participants = {}
 #   'sbp': StreamingSBP or None,
 #   'phase': 'calibration',
 #   'baseline_rows': [],
-#   'window_count': 0
+#   'window_count': 0,
+#   'easy_energies': [],
 # }
 
 
@@ -39,6 +40,7 @@ def get_or_init_participant(pid):
             "phase": "calibration",
             "baseline_rows": [],
             "window_count": 0,
+            "easy_energies": [],
         }
     return participants[pid]
 
@@ -106,6 +108,24 @@ def on_message(client, userdata, msg):
 
                 if result is not None:
                     state["window_count"] += 1
+                    if state["phase"] == "easy_test":
+                        state["easy_energies"].append(result["raw_energy"])
+                        if (
+                            len(state["easy_energies"]) >= 3
+                            and state["sbp"].mu_easy is None
+                        ):
+                            state["sbp"].mu_easy = float(
+                                np.mean(state["easy_energies"])
+                            )
+                            state["sbp"].sigma_easy = (
+                                float(np.std(state["easy_energies"])) + 1e-8
+                            )
+                            print(
+                                f"[{pid}] CTI normalization set from "
+                                f"{len(state['easy_energies'])} easy windows: "
+                                f"mu={state['sbp'].mu_easy:.6f} "
+                                f"sigma={state['sbp'].sigma_easy:.6f}"
+                            )
                     out = {
                         "participant_id": pid,
                         "raw_energy": result["raw_energy"],
@@ -155,6 +175,7 @@ def on_message(client, userdata, msg):
                 state["baseline_rows"] = []
                 state["sbp"] = None
                 state["window_count"] = 0
+                state["easy_energies"] = []
                 print(f"[{pid}] New session started — reset state")
 
             elif event == "choice_made":
