@@ -1,5 +1,5 @@
 """
-Emotiv Cortex → MQTT bridge: band powers + performance metrics as normalized features.
+Emotiv Cortex → MQTT bridge: band powers (pow stream) + derived indices as normalized features.
 Requires Emotiv Launcher (Cortex service on wss://localhost:6868).
 """
 import argparse
@@ -197,17 +197,16 @@ def main():
                 "params": {
                     "cortexToken": cortex_token,
                     "session": session_id,
-                    "streams": ["pow", "met"],
+                    "streams": ["pow"],
                 },
             },
         )
         if "error" in resp and resp["error"]:
             print("subscribe error:", resp["error"])
             return
-        print("Subscribed to pow and met streams. Data flowing...")
+        print("Subscribed to pow stream. Data flowing...")
 
         latest_pow = None
-        latest_met = None
         last_publish_time = 0
         publish_count = 0
         calibration_vectors = []
@@ -239,27 +238,32 @@ def main():
                     beta_l = float(np.mean([row[2] for row in pow_data]))
                     beta_h = float(np.mean([row[3] for row in pow_data]))
                     gamma = float(np.mean([row[4] for row in pow_data]))
-                    latest_pow = [theta, alpha, beta_l, beta_h, gamma]
-                except (IndexError, TypeError):
-                    pass
-
-            if "met" in data:
-                met = data["met"]
-                try:
-                    engagement = float(met[0])
-                    arousal = float(met[1])
-                    rel = float(met[4])
-                    stress = float(met[3])
-                    valence = float(np.clip(rel - stress, -1.0, 1.0))
-                    latest_met = [arousal, valence, engagement]
+                    engagement = float(beta_l / (alpha + theta + 1e-8))
+                    arousal = float((beta_l + beta_h) / (alpha + theta + 1e-8))
+                    valence = float(
+                        np.clip(alpha - beta_h, -1.0, 1.0)
+                        / (alpha + beta_h + 1e-8)
+                    )
+                    raw_vec = np.array(
+                        [
+                            theta,
+                            alpha,
+                            beta_l,
+                            beta_h,
+                            gamma,
+                            arousal,
+                            valence,
+                            engagement,
+                        ]
+                    )
+                    latest_pow = raw_vec
                 except (IndexError, TypeError):
                     pass
 
             now = time.time()
-            if latest_pow is not None and latest_met is not None:
+            if latest_pow is not None:
                 if now - last_publish_time >= 0.1:
-                    raw_vec = np.array(latest_pow + latest_met)
-                    # Theta, Alpha, BetaL, BetaH, Gamma, Arousal, Valence, Engagement
+                    raw_vec = latest_pow
 
                     if args.calibrate:
                         calibration_vectors.append(raw_vec.tolist())
