@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+.env
+.env.*
+*.egg-info/
+dist/
+build/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# EEG / session data — not published (available upon request)
+data/
+*.csv
+*.xlsx
+*.xls
+*.parquet
+*.npy
+*.npz
+*.pkl
+*.h5
+*.mat
+
+# Node / Next.js (Moral Machine game)
+mt_moral_machine/node_modules/
+mt_moral_machine/.next/
+mt_moral_machine/data/exports/
+
+# IDE / local tooling
+.cursor/
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local scratch
+submission_paper/
+AGENT_PROMPTS.md
