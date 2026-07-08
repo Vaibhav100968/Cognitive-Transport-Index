@@ -2,7 +2,6 @@
 
 **A label-free, real-time EEG cognitive load measure from the Schrödinger Bridge Problem.**
 
-[![Paper](https://img.shields.io/badge/Paper-AAAI%202026-blue)](#citation)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)](requirements.txt)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-EE4C2C?logo=pytorch&logoColor=white)](requirements.txt)
 
@@ -178,12 +177,13 @@ npm run dev
 If you use this code or the CTI method, please cite:
 
 ```bibtex
-@inproceedings{gollapalli2026cti,
-  title     = {The Cognitive Transport Index: A Comparative Analysis of Real-Time {EEG}
-               Cognitive Load Models via the Schr{\"o}dinger Bridge Problem},
-  author    = {Gollapalli, Vaibhav and Sattiraju, Sriram and Pal, Aayush and McMahan, Timothy Fred},
-  booktitle = {Proceedings of the AAAI Conference on Artificial Intelligence},
-  year      = {2026}
+@misc{gollapalli2026cti,
+  title        = {The Cognitive Transport Index: A Comparative Analysis of Real-Time {EEG}
+                  Cognitive Load Models via the Schr{\"o}dinger Bridge Problem},
+  author       = {Gollapalli, Vaibhav and Sattiraju, Sriram and Pal, Aayush and McMahan, Timothy Fred},
+  year         = {2026},
+  howpublished = {Unpublished manuscript},
+  url          = {https://github.com/Vaibhav100968/Cognitive-Transport-Index}
 }
 ```
 
