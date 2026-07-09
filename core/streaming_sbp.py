@@ -15,6 +15,12 @@ from core.SBP import ScoreNet, euler_maruyama_sample, train_scores, device
 
 
 class StreamingSBP:
+    """Online Schrödinger-bridge energy estimator with CTI normalization.
+
+    Holds resting prior ``X0``, a sliding feature buffer, and participant-specific
+    ``(μ_easy, σ_easy)`` stats. See ``docs/ARCHITECTURE.md`` for the full lifecycle.
+    """
+
     def __init__(self, baseline_rows, features, window_size=50, step_size=10):
         self.features = list(features)
         self.window_size = int(window_size)
@@ -37,11 +43,13 @@ class StreamingSBP:
         self.window_count = 0
 
     def set_phase(self, phase):
+        """Advance session phase; lock CTI stats when leaving calibration."""
         if (
             self.phase == "calibration"
             and phase != "calibration"
             and len(self.energy_history) > 0
         ):
+            # Participant-specific z-score baseline for CTI(t) = (E − μ) / σ
             self.mu_easy = float(np.mean(self.energy_history))
             self.sigma_easy = float(np.std(self.energy_history)) + 1e-8
             print(
@@ -59,20 +67,28 @@ class StreamingSBP:
         self.buffer.append(v)
 
     def compute_energy(self):
+        """Solve a short SBP on the current window; return raw energy and CTI.
+
+        Returns ``None`` until the buffer holds ``window_size`` samples. After a
+        successful window, the buffer advances by ``step_size`` (overlap).
+        """
         if len(self.buffer) < self.window_size:
             return None
 
         X1 = torch.as_tensor(np.array(list(self.buffer)), dtype=torch.float32, device=self.device)
+        # Match endpoint batch sizes for the bridge (required by train_scores).
         n = min(self.X0.shape[0], self.window_size)
         X0 = self.X0[:n]
         X1 = X1[:n]
 
         score_f = ScoreNet(len(self.features)).to(self.device)
         score_b = ScoreNet(len(self.features)).to(self.device)
+        # Short epoch budget keeps median end-to-end latency ~sub-second on CPU/MPS.
         train_scores(X0, X1, score_f, score_b, epochs=20, batch_size=32)
 
         traj = euler_maruyama_sample(X0, score_f, steps=100)
 
+        # Monte-Carlo-style mean squared drift along the sampled bridge.
         energy = 0.0
         for i in range(100):
             t = torch.full((traj.shape[1], 1), i / 100.0, device=self.device)
@@ -90,6 +106,7 @@ class StreamingSBP:
         else:
             CTI = None
 
+        # Overlapping window: drop the oldest ``step_size`` samples, keep the rest.
         buf_list = list(self.buffer)
         self.buffer.clear()
         for item in buf_list[self.step_size :]:

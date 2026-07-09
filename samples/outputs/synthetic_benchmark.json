@@ -1,0 +1,42 @@
+{
+  "generated_at": "2026-07-09T22:34:46.487442+00:00",
+  "seed": 42,
+  "feature_dim": 8,
+  "features": [
+    "Theta",
+    "Alpha",
+    "BetaL",
+    "BetaH",
+    "Gamma",
+    "Arousal",
+    "Valence",
+    "Engagement"
+  ],
+  "baselines": [
+    {
+      "model": "Spectral Band Ratio",
+      "easy": 0.6633913516998291,
+      "hard": 0.5887470841407776,
+      "hard_minus_easy": -0.07464426755905151
+    },
+    {
+      "model": "Engagement Index",
+      "easy": 0.41133642196655273,
+      "hard": 0.5345350503921509,
+      "hard_minus_easy": 0.12319862842559814
+    },
+    {
+      "model": "Differential Entropy",
+      "easy": 0.6940658092498779,
+      "hard": 1.2172269821166992,
+      "hard_minus_easy": 0.5231611728668213
+    },
+    {
+      "model": "RMS Channel Energy",
+      "easy": 0.5739114284515381,
+      "hard": 1.457724928855896,
+      "hard_minus_easy": 0.8838135004043579
+    }
+  ],
+  "streaming_sbp": null
+}

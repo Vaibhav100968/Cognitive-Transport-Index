@@ -18,6 +18,13 @@ def _select_device():
 device = _select_device()
 
 class ScoreNet(nn.Module):
+    """MLP score estimator ∇ log p_t(x) for the Schrödinger bridge marginal.
+
+    Time ``t`` is tiled across feature dims and concatenated with ``x``, so the
+    first layer sees width ``2 * dim``. Forward and backward bridges each own
+    an independent ``ScoreNet`` instance.
+    """
+
     def __init__(self, dim, hidden_dim=128):
         super().__init__()
         self.net = nn.Sequential(
@@ -31,26 +38,39 @@ class ScoreNet(nn.Module):
     def forward(self, x, t):
         if len(t.shape) == 1:
             t = t.view(-1, 1)
+        # Broadcast scalar time into a dim-wide embedding, then concat with x.
         t_embed = t.repeat(1, x.shape[1])
         inp = torch.cat([x, t_embed], dim=1)
         return self.net(inp)
 
 
 def interpolate_samples(x0, x1, t):
+    """Brownian-bridge interpolant between endpoint batches ``x0`` and ``x1``.
+
+    ``x_t = (1-t) x0 + t x1 + σ √(t(1-t)) ε`` with ``σ = 1``. Variance vanishes
+    at the endpoints so the bridge matches the observed marginals.
+    """
     sigma = 1.0
     noise = torch.randn_like(x0) * sigma * torch.sqrt(t * (1 - t))
     return (1 - t) * x0 + t * x1 + noise
 
 
 def score_matching_loss(score_net, x, t):
+    """Denoising score-matching objective on an interpolant batch."""
     x = x.clone().requires_grad_(True)
     score = score_net(x, t)
     noise_var = (t * (1 - t)).view(-1, 1)
+    # Target score of the Gaussian bridge noise; stop-grad keeps the MSE stable.
     target = -(x - x.detach()) / noise_var
     return ((score - target) ** 2).mean()
 
 
 def train_scores(x0, x1, score_f, score_b, epochs=100, batch_size=128):
+    """Fit forward (``score_f``) and reverse (``score_b``) score networks.
+
+    Streaming CTI uses a short epoch budget (~20) for latency; offline
+    validation uses larger budgets (~50–100) for fidelity.
+    """
     optimizer_f = optim.Adam(score_f.parameters(), lr=1e-3)
     optimizer_b = optim.Adam(score_b.parameters(), lr=1e-3)
 
@@ -67,7 +87,7 @@ def train_scores(x0, x1, score_f, score_b, epochs=100, batch_size=128):
 
             t = torch.rand(len(idx), device=device).unsqueeze(1)
 
-            # Forward
+            # Forward bridge: t : 0 → 1
             x_t = interpolate_samples(x0[idx], x1[idx], t)
             optimizer_f.zero_grad()
             loss_f = score_matching_loss(score_f, x_t, t)
@@ -75,7 +95,7 @@ def train_scores(x0, x1, score_f, score_b, epochs=100, batch_size=128):
             optimizer_f.step()
             loss_f_epoch += loss_f.item() * len(idx)
 
-            # Backward
+            # Backward bridge: train on reversed time 1 − t
             t_rev = 1 - t
             x_t_rev = interpolate_samples(x0[idx], x1[idx], t_rev)
             optimizer_b.zero_grad()
@@ -92,6 +112,11 @@ def train_scores(x0, x1, score_f, score_b, epochs=100, batch_size=128):
 
 
 def euler_maruyama_sample(x0, score_net, T=1.0, steps=100, sigma=1.0):
+    """Integrate the forward SDE; return trajectory ``[steps+1, batch, dim]``.
+
+    Drift is ``σ² · score(x, t)``. Mean squared drift along this path is the
+    raw SBP transport energy used by CTI.
+    """
     dt = T / steps
     x = x0.clone().to(device)
     traj = [x.cpu().numpy()]

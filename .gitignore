@@ -41,3 +41,8 @@ mt_moral_machine/data/exports/
 # Local scratch
 submission_paper/
 AGENT_PROMPTS.md
+
+# Keep checked-in sample benchmark reports (JSON/MD under samples/outputs/)
+!samples/
+!samples/outputs/
+!samples/outputs/**

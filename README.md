@@ -70,11 +70,19 @@ Cognitive-Transport-Index/
 │   └── mock_eeg.py         # CSV replay for testing without hardware
 ├── analysis/
 │   └── experiments.py      # Paper figures → analysis/figures/
+├── benchmarks/
+│   └── run_synthetic_benchmark.py  # Smoke benchmark (no real EEG)
+├── tests/                  # Unit tests (pytest)
+├── docs/
+│   └── ARCHITECTURE.md     # System design + SBP/CTI notes
+├── samples/outputs/        # Checked-in sample benchmark report
 ├── mt_moral_machine/       # Next.js Moral Machine game (MQTT events)
 ├── run_session.py          # Orchestrates subscriber + logger + dashboard
 ├── preprocess.py           # VEGS Excel → feature CSV (requires raw data)
 └── requirements.txt
 ```
+
+Deeper design notes (MQTT topology, score network, CTI lifecycle): **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
 
 ---
 
@@ -95,6 +103,21 @@ pip install -r requirements.txt
 brew install mosquitto
 brew services start mosquitto
 ```
+
+---
+
+## Tests & synthetic benchmark
+
+No subject EEG is required. Unit tests cover classical baselines, `ScoreNet`, and StreamingSBP / CTI math. The synthetic benchmark writes a sample report under `samples/outputs/`.
+
+```bash
+pytest -q
+python benchmarks/run_synthetic_benchmark.py
+# Optional: also train short score nets on synthetic clouds
+python benchmarks/run_synthetic_benchmark.py --with-sbp
+```
+
+See the checked-in sample: [`samples/outputs/synthetic_benchmark.md`](samples/outputs/synthetic_benchmark.md).
 
 ---
 
