@@ -1,0 +1,41 @@
+# Replicate the CTI MQTT stack locally without installing mosquitto by hand.
+#
+# Quick start:
+#   docker compose up --build
+#
+# That brings up mosquitto + a headless synthetic EEG → CTI demo.
+# Session CSV is written to ./data on the host.
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./deploy/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
+  cti-demo:
+    build: .
+    depends_on:
+      - mosquitto
+    environment:
+      MQTT_BROKER: mosquitto
+      MQTT_PORT: "1883"
+      # Faster score-net budget so the Compose demo finishes in a few minutes.
+      STREAMING_SBP_EPOCHS: "3"
+      STREAMING_SBP_STEPS: "20"
+      STREAMING_WINDOW: "20"
+      STREAMING_STEP: "10"
+    volumes:
+      - ./data:/app/data
+    command:
+      [
+        "python",
+        "scripts/run_live_demo.py",
+        "--broker",
+        "mosquitto",
+        "--seconds",
+        "180",
+        "--rate",
+        "6",
+      ]

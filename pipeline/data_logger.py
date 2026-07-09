@@ -1,5 +1,10 @@
 """
 Subscribe to MQTT energy + game events and append synchronized rows to session_data.csv.
+
+Joins CTI samples with the nearest recent game event (within 2 s) so offline
+analysis can align reaction times / choices with cognitive-load estimates.
+
+Broker: ``MQTT_BROKER`` / ``MQTT_PORT`` (defaults localhost:1883).
 """
 import collections
 import json
@@ -14,6 +19,8 @@ DATA_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data"
 )
 CSV_PATH = os.path.join(DATA_DIR, "session_data.csv")
+BROKER = os.environ.get("MQTT_BROKER", "localhost")
+PORT = int(os.environ.get("MQTT_PORT", "1883"))
 COLUMNS = [
     "timestamp",
     "participant_id",
@@ -30,6 +37,7 @@ COLUMNS = [
     "latency_ms",
 ]
 
+# Ring buffer of recent game events per participant for timestamp alignment.
 game_buffers = collections.defaultdict(lambda: collections.deque(maxlen=200))
 row_count = 0
 
@@ -51,6 +59,7 @@ def write_row(row_dict):
 
 
 def find_nearest_game_event(pid, timestamp, max_diff=2.0):
+    """Match an energy sample to the closest game event within ``max_diff`` seconds."""
     best = None
     best_diff = max_diff
     for ev in game_buffers[pid]:
@@ -63,7 +72,7 @@ def find_nearest_game_event(pid, timestamp, max_diff=2.0):
 
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
-        print("[Logger] Connected to MQTT broker")
+        print(f"[Logger] Connected to MQTT broker {BROKER}:{PORT}")
         client.subscribe("eeg/energy/+")
         client.subscribe("game/events/+")
         print(f"[Logger] Writing to {CSV_PATH}")
@@ -151,12 +160,13 @@ if __name__ == "__main__":
     client = _make_client()
     client.on_connect = on_connect
     client.on_message = on_message
-    print("[Logger] Connecting to MQTT broker localhost:1883...")
+    print(f"[Logger] Connecting to MQTT broker {BROKER}:{PORT}...")
     try:
-        client.connect("localhost", 1883, 60)
+        client.connect(BROKER, PORT, 60)
         client.loop_forever()
     except KeyboardInterrupt:
         print(f"\n[Logger] Shutting down. Total rows written: {row_count}")
         client.disconnect()
     except ConnectionRefusedError:
-        print("[Logger] Cannot connect. Run: brew services start mosquitto")
+        print(f"[Logger] Cannot connect to {BROKER}:{PORT}")
+        print("Run: brew services start mosquitto  OR  docker compose up mosquitto")

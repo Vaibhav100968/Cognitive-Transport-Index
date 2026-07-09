@@ -1,0 +1,14 @@
+.git
+.venv
+venv
+__pycache__
+*.pyc
+.DS_Store
+.cursor
+mt_moral_machine/node_modules
+mt_moral_machine/.next
+data
+*.csv
+submission_paper
+AGENT_PROMPTS.md
+analysis/figures

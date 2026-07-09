@@ -84,19 +84,23 @@ class StreamingSBP:
         score_f = ScoreNet(len(self.features)).to(self.device)
         score_b = ScoreNet(len(self.features)).to(self.device)
         # Short epoch budget keeps median end-to-end latency ~sub-second on CPU/MPS.
-        train_scores(X0, X1, score_f, score_b, epochs=20, batch_size=32)
+        # Override with STREAMING_SBP_EPOCHS (e.g. 3) for faster Docker/live demos.
+        epochs = int(os.environ.get("STREAMING_SBP_EPOCHS", "20"))
+        em_steps = int(os.environ.get("STREAMING_SBP_STEPS", "100"))
+        train_scores(X0, X1, score_f, score_b, epochs=max(1, epochs), batch_size=32)
 
-        traj = euler_maruyama_sample(X0, score_f, steps=100)
+        traj = euler_maruyama_sample(X0, score_f, steps=max(2, em_steps))
 
         # Monte-Carlo-style mean squared drift along the sampled bridge.
         energy = 0.0
-        for i in range(100):
-            t = torch.full((traj.shape[1], 1), i / 100.0, device=self.device)
+        n_steps = traj.shape[0] - 1
+        for i in range(n_steps):
+            t = torch.full((traj.shape[1], 1), i / float(n_steps), device=self.device)
             drift = score_f(
                 torch.as_tensor(traj[i], dtype=torch.float32, device=self.device),
                 t,
             )
-            energy += (drift.norm(dim=1) ** 2).mean().item() / 100.0
+            energy += (drift.norm(dim=1) ** 2).mean().item() / float(n_steps)
 
         if self.phase == "calibration":
             self.energy_history.append(energy)

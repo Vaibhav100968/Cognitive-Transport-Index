@@ -127,10 +127,13 @@ Post-session scripts load local (gitignored) CSVs when present and write figures
 | `tests/` | Unit tests for baselines, ScoreNet, StreamingSBP / CTI math |
 | `benchmarks/run_synthetic_benchmark.py` | End-to-end smoke + sample report (no real EEG) |
 | `samples/outputs/` | Checked-in sample benchmark markdown/JSON |
+| `scripts/run_live_demo.py` | Headless MQTT → CTI demo |
+| `docker-compose.yml` | Mosquitto + demo in one command |
 
 ```bash
 pytest -q
 python benchmarks/run_synthetic_benchmark.py
+docker compose up --build   # see docs/DEPLOYMENT.md
 ```
 
 ## Privacy / data policy

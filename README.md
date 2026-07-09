@@ -74,15 +74,47 @@ Cognitive-Transport-Index/
 │   └── run_synthetic_benchmark.py  # Smoke benchmark (no real EEG)
 ├── tests/                  # Unit tests (pytest)
 ├── docs/
-│   └── ARCHITECTURE.md     # System design + SBP/CTI notes
+│   ├── ARCHITECTURE.md     # System design + SBP/CTI notes
+│   └── DEPLOYMENT.md       # Docker, live demo, Emotiv deployment
+├── deploy/
+│   └── mosquitto.conf      # Broker config for Compose
+├── scripts/
+│   └── run_live_demo.py    # Headless MQTT → CTI demo (no headset)
 ├── samples/outputs/        # Checked-in sample benchmark report
+├── Dockerfile / docker-compose.yml
 ├── mt_moral_machine/       # Next.js Moral Machine game (MQTT events)
 ├── run_session.py          # Orchestrates subscriber + logger + dashboard
 ├── preprocess.py           # VEGS Excel → feature CSV (requires raw data)
 └── requirements.txt
 ```
 
-Deeper design notes (MQTT topology, score network, CTI lifecycle): **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
+Deeper design notes: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** · Live / Docker deploy: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
+
+---
+
+## Quick demo (runnable, no headset)
+
+There is no public cloud URL (live EEG needs Emotiv Cortex on a local machine, and subject data is not published). Reproduce the **live MQTT → CTI path** locally:
+
+### Docker (one command)
+
+```bash
+git clone https://github.com/Vaibhav100968/Cognitive-Transport-Index.git
+cd Cognitive-Transport-Index
+docker compose up --build
+```
+
+Starts Mosquitto + a synthetic EEG publisher + SBP subscriber. You should see `[demo] CTI sample …` lines and a final `SUCCESS`. Logs land in `./data/session_data.csv`.
+
+### Local (Python + Mosquitto)
+
+```bash
+brew install mosquitto && brew services start mosquitto
+pip install -r requirements.txt
+python scripts/run_live_demo.py
+```
+
+Offline sample report (no broker): [`samples/outputs/synthetic_benchmark.md`](samples/outputs/synthetic_benchmark.md).
 
 ---
 
@@ -97,7 +129,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-**MQTT broker** (macOS / Homebrew):
+**MQTT broker** (macOS / Homebrew), if not using Docker:
 
 ```bash
 brew install mosquitto

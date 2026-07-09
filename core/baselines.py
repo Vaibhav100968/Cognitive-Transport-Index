@@ -15,20 +15,25 @@ import torch.nn as nn
 
 
 def spectral_band_ratio(window: np.ndarray) -> float:
-    """(Theta + Alpha) / (BetaL + BetaH + Gamma), window means."""
+    """Low/high band-power ratio: (θ+α) / (βL+βH+γ).
+
+    Classical vigilance-style index; higher values often track slower rhythms
+    relative to fast activity (interpretation is task-dependent).
+    """
     num = np.mean(window[:, 0] + window[:, 1])
     den = np.mean(window[:, 2] + window[:, 3] + window[:, 4]) + 1e-8
     return float(num / den)
 
 
 def engagement_index(window: np.ndarray) -> float:
-    """BetaL / (Alpha + Theta), window means."""
+    """Pope engagement index: βL / (α + θ), averaged over the window."""
     return float(
         np.mean(window[:, 2]) / (np.mean(window[:, 1] + window[:, 0]) + 1e-8)
     )
 
 
 def differential_entropy(window: np.ndarray) -> float:
+    """Mean per-feature Gaussian differential entropy ½ log(2πe σ²)."""
     variances = np.var(window, axis=0) + 1e-8
     de = 0.5 * np.log(2 * np.pi * np.e * variances)
     return float(np.mean(de))

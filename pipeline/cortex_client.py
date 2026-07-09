@@ -231,6 +231,9 @@ def main():
                 break
 
             if "pow" in data:
+                # Cortex ``pow`` is a flat list: 14 electrodes × 5 bands
+                # (θ, α, βL, βH, γ). Average across electrodes for a stable 5-d
+                # spectral summary, then derive arousal / valence / engagement.
                 pow_data = data["pow"]
                 arr = np.array(pow_data).reshape(14, 5)
                 theta = float(np.mean(arr[:, 0]))
